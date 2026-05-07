@@ -53,7 +53,7 @@ jobs:
           uv add jupyter nbconvert ipykernel pytest
       - name: Run doc tests
         run: |
-          uv run jupyter nbconvert --to python docs/getting_started/tutorials/data-tutorial.ipynb
-          uv run pytest docs/getting_started/tutorials/data-tutorial.py
+          uv run jupyter nbconvert --to python docs/getting_started/tutorials/*.ipynb
+          uv run pytest docs/getting_started/tutorials/
       - name: Run docstring tests
         run: uv run --directory docs jb build . --builder=custom --custom-builder=doctest
