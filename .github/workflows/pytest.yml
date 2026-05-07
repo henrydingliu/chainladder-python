@@ -56,4 +56,4 @@ jobs:
       - name: Run doc tests
         run: |
           uv run jupyter nbconvert --to python docs/getting_started/tutorials/*.ipynb
-          uv run ipython docs/getting_started/tutorials/*.py
+          uv run --directory docs/getting_started/tutorials for f in *.py do ipython "$f"
