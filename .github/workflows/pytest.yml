@@ -64,9 +64,8 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --extra docs
-          uv run jupyter nbconvert ipykernel
       - name: Run docs doctests
         run: |
-          jupyter nbconvert --to python docs/getting_started/tutorials/triangle-tutorial.ipynb
+          uv run jupyter nbconvert --to python docs/getting_started/tutorials/triangle-tutorial.ipynb
           python docs/getting_started/tutorials/triangle-tutorial.py
         
