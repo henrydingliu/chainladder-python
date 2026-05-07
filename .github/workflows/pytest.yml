@@ -67,5 +67,5 @@ jobs:
       - name: Run docs doctests
         run: |
           uv run jupyter nbconvert --to python docs/getting_started/tutorials/triangle-tutorial.ipynb
-          python docs/getting_started/tutorials/triangle-tutorial.py
+          uv run python docs/getting_started/tutorials/triangle-tutorial.py
         
