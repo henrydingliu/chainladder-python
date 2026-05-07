@@ -67,6 +67,6 @@ jobs:
           pip install jupyter nbconvert ipykernel
       - name: Run docs doctests
         run: |
-          jupyter nbconvert --to script docs/getting_started/tutorials/triangle-tutorial.ipynb --to python
+          jupyter nbconvert --to python docs/getting_started/tutorials/triangle-tutorial.ipynb
           python docs/getting_started/tutorials/triangle-tutorial.py
         
