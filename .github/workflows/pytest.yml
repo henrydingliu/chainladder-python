@@ -48,25 +48,12 @@ jobs:
           version: "latest"
           python-version: "3.12"
       - name: Install dependencies
-        run: uv sync --extra docs
-      - name: Run doctests
-        run: uv run --directory docs jb build . --builder=custom --custom-builder=doctest
-  friedtest:
-    name: Friedtest (ubuntu-latest, 3.12)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          version: "latest"
-          python-version: "3.12"
-      - name: Install dependencies
         run: |
           uv sync --extra docs
           uv add jupyter nbconvert ipykernel
-      - name: Run docs doctests
+      - name: Run docstring tests
+        run: uv run --directory docs jb build . --builder=custom --custom-builder=doctest
+      - name: Run doc tests
         run: |
-          uv run jupyter nbconvert --to python docs/getting_started/tutorials/triangle-tutorial.ipynb
-          uv run ipython -m doctest docs/getting_started/tutorials/triangle-tutorial.py
-        
+          uv run jupyter nbconvert --to python docs/getting_started/tutorials/*.ipynb
+          uv run ipython docs/getting_started/tutorials/*.py
