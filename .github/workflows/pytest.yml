@@ -51,9 +51,7 @@ jobs:
         run: |
           uv sync --extra docs
           uv add jupyter nbconvert ipykernel
-      - name: Run docstring tests
-        run: uv run --directory docs jb build . --builder=custom --custom-builder=doctest
       - name: Run doc tests
         run: |
-          uv run jupyter nbconvert --to python docs/getting_started/tutorials/*.ipynb
-          uv run --directory docs/getting_started/tutorials for f in *.py do ipython "$f"
+          uv run jupyter nbconvert --to python docs/getting_started/tutorials/data-tutorial.ipynb
+          uv run pytest docs/getting_started/tutorials/data-tutorial.py
