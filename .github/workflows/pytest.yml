@@ -54,6 +54,6 @@ jobs:
       - name: Run doc tests
         run: |
           uv run jupyter nbconvert --to python docs/getting_started/tutorials/*.ipynb
-          uv run pytest docs/getting_started/tutorials/
+          uv run pytest --doctest-modules docs/getting_started/tutorials/
       - name: Run docstring tests
         run: uv run --directory docs jb build . --builder=custom --custom-builder=doctest
