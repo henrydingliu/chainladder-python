@@ -35,7 +35,6 @@ dependencies = [
     "numba>0.54",
     "sparse>=0.9",
     "numpy",
-    "matplotlib",
     "dill",
     "patsy",
 ]
@@ -69,6 +68,7 @@ docs = [
     "parso>=0.8",
     "polars",  # For docs examples
     "statsmodels",  # For docs example
+    "matplotlib",
 ]
 test = [
     "lxml",
