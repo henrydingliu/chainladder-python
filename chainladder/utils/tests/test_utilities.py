@@ -112,6 +112,66 @@ def test_vertical_line():
     assert abs(olf.loc["2017"].iloc[0] - true_olf) < 0.00001
 
 
+def test_policy_length():
+    rate_history = pd.DataFrame(
+        {
+            "EffDate": ["2010-07-01", "2011-01-01", "2012-04-01"],
+            "RateChange": [0.05, 0.1, -0.01],
+        }
+    )
+    data = pd.DataFrame(
+        {"Year": [2010, 2011, 2012, 2013, 2014], "EarnedPremium": [10_000] * 5}
+    )
+    prem_tri = cl.Triangle(
+        data, origin="Year", columns="EarnedPremium", cumulative=True
+    )
+
+    prem_tri = cl.ParallelogramOLF(
+        rate_history, change_col="RateChange", date_col="EffDate", policy_length=12
+    ).fit_transform(prem_tri)
+    assert (
+        np.round(prem_tri.olf_.values.flatten(), 6)
+        == [1.136348, 1.043056, 0.992792, 0.999684, 1]
+    ).all()
+
+    prem_tri = cl.ParallelogramOLF(
+        rate_history, change_col="RateChange", date_col="EffDate", policy_length=6
+    ).fit_transform(prem_tri)
+    assert (
+        np.round(prem_tri.olf_.values.flatten(), 6)
+        == [1.129333, 1.013023, 0.994975, 1, 1]
+    ).all()
+
+    rate_history = pd.DataFrame(
+        {
+            "EffDate": ["2010-07-01", "2011-10-01", "2012-04-01"],
+            "RateChange": [0.35, 0.149, -0.095],
+        }
+    )
+    data = pd.DataFrame(
+        {"Year": [2010, 2011, 2012, 2013, 2014], "EarnedPremium": [10_000] * 5}
+    )
+    prem_tri = cl.Triangle(data, origin="Year", columns="EarnedPremium", cumulative=True)
+
+    prem_tri = cl.ParallelogramOLF(
+        rate_history,
+        change_col="RateChange",
+        date_col="EffDate",
+        policy_length=12,
+        approximation_grain="M",
+    ).fit_transform(prem_tri)
+    assert (np.round(prem_tri.olf_.values.flatten(),6) == [1.344949, 1.069526, 0.966045, 0.996730, 1]).all()
+
+    prem_tri = cl.ParallelogramOLF(
+        rate_history,
+        change_col="RateChange",
+        date_col="EffDate",
+        policy_length=6,
+        approximation_grain="M",
+    ).fit_transform(prem_tri)
+    assert (np.round(prem_tri.olf_.values.flatten(),6) == [1.290842, 1.030251, 0.958285, 1, 1]).all()
+
+
 def test_triangle_json_io(clrd):
     xp = clrd.get_array_module()
     clrd2 = cl.read_json(clrd.to_json(), array_backend=clrd.array_backend)
@@ -157,33 +217,38 @@ def test_json_df():
     )
     assert abs(cl.read_json(x.to_json()).lambda_ - x.lambda_).sum() < 1e-5
 
+
 def test_read_csv_single(raa):
     # Test the read_csv function for a single dimensional input.
-    
+
     # Read in the csv file.
     from pathlib import Path
+
     raa_csv_path = Path(__file__).parent.parent / "data" / "raa.csv"
 
     assert raa == cl.read_csv(
         filepath_or_buffer=raa_csv_path,
-        origin = "origin",
-        development = "development",
-        columns = ["values"],
-        index = None,
-        cumulative = True)
+        origin="origin",
+        development="development",
+        columns=["values"],
+        index=None,
+        cumulative=True,
+    )
+
 
 def test_read_csv_multi(clrd):
     # Test the read_csv function for multidimensional input.
 
     # Read in the csv file.
     from pathlib import Path
+
     clrd_csv_path = Path(__file__).parent.parent / "data" / "clrd.csv"
 
     assert clrd == cl.read_csv(
         filepath_or_buffer=clrd_csv_path,
-        origin = "AccidentYear",
-        development = "DevelopmentYear",
-        columns = [
+        origin="AccidentYear",
+        development="DevelopmentYear",
+        columns=[
             "IncurLoss",
             "CumPaidLoss",
             "BulkLoss",
@@ -191,9 +256,10 @@ def test_read_csv_multi(clrd):
             "EarnedPremCeded",
             "EarnedPremNet",
         ],
-        index = ["GRNAME","LOB"],
-        cumulative = True
-    ) 
+        index=["GRNAME", "LOB"],
+        cumulative=True,
+    )
+
 
 def test_concat(clrd):
     tri = clrd.groupby("LOB").sum()

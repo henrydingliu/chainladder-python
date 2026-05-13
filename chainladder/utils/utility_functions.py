@@ -524,6 +524,7 @@ def parallelogram_olf(
     start_date=None,
     end_date=None,
     grain="Y",
+    policy_length=12,
     approximation_grain="M",
     vertical_line=False,
 ):
@@ -559,8 +560,8 @@ def parallelogram_olf(
 
     if not vertical_line:
         rolling_num = {
-            "M": 12,
-            "D": 365,
+            "M": policy_length,
+            "D": 365*int(policy_length/12),
         }
 
         cum_avg_rate_non_leaps = cum_rate_changes.rolling(
@@ -730,14 +731,14 @@ def num_to_value(
             arr.coords = arr.coords[:, arr.data != 0]
             arr.data = arr.data[arr.data != 0]
 
-            arr: COO = sp(
+            arr: COO = sp.COO(
                 coords=arr.coords,
                 data=arr.data,
-                fill_value=sp.nan, # noqa
+                fill_value=sp.COO.nan, # noqa
                 shape=arr.shape
             )
         else:
-            arr: COO = sp(
+            arr: COO = sp.COO(
                 num_to_nan(np.nan_to_num(arr.todense())),
                 fill_value=value
             )
