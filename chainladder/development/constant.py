@@ -63,25 +63,19 @@ class DevelopmentConstant(DevelopmentBase):
         if callable(self.patterns):
             if self.callable_axis == 0:
                 ldf = obj.index.apply(self.patterns, axis=1)
-                ldf = (
-                    pd.concat(ldf.apply(pd.DataFrame, index=[0]).values, axis=0)
-                    .fillna(1)[obj.ddims].values)
-                ldf = xp.array(ldf[:, None, None, :])
             elif self.callable_axis == 1:
                 ldf = obj.columns.to_frame(index=False).apply(self.patterns, axis=1)
-                ldf = (
-                    pd.concat(ldf.apply(pd.DataFrame, index=[0]).values, axis=0)
-                    .fillna(1)[obj.ddims].values)
-                ldf = xp.array(ldf[None, :, None, :])
             else:
                 raise ValueError('callable axis needs to be 0 or 1')
         else:
-            extra_dims = [x for x in self.patterns.keys() if x > np.max(obj.ddims)]
-            if extra_dims:
-                obj.values = xp.concatenate([obj.values]+[obj.iloc[...,-1:].values]*len(extra_dims), -1)
-                obj.ddims = np.concatenate((obj.ddims, extra_dims), 0,)
-            ldf = xp.array([float(self.patterns.get(item,1)) for item in obj.ddims])
-            ldf = ldf[None, None, None, :]
+            ldf = pd.Series([self.patterns])
+        extra_dims = [x for x in ldf.iloc[0].keys() if x > np.max(obj.ddims)]
+        if extra_dims:
+            obj.values = xp.concatenate([obj.values]+[obj.iloc[...,-1:].values]*len(extra_dims), -1)
+            obj.ddims = np.concatenate((obj.ddims, sorted(extra_dims)), 0,)
+        ldf = ldf.apply(lambda x:{i:x.get(i,1) for i in obj.ddims})
+        ldf = pd.concat(ldf.apply(pd.DataFrame, index=[0]).values, axis=0).values
+        ldf = xp.array(np.expand_dims(np.expand_dims(ldf,axis=1),axis=1-self.callable_axis))
         if self.style == "cdf":
             ldf = xp.concatenate((ldf[..., :-1] / ldf[..., 1:], ldf[..., -1:]), -1)
         obj = obj * ldf

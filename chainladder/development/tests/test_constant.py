@@ -55,7 +55,7 @@ def test_constant_callable_axis1(clrd, atol):
     with pytest.raises(ValueError):
         xerror = cl.DevelopmentConstant(patterns=paid_cdfs, callable_axis=2, style='cdf').fit(agway)
     lhs = cl.DevelopmentConstant(patterns=paid_cdfs, callable_axis=1, style='cdf').fit(agway).cdf_
-    assert np.all(abs(lhs.values[0,:,0,:]-patterns.values[:,:-1]) < atol)
+    assert np.all(abs(lhs.values[0,:,0,:]-patterns.values) < atol)
 
 def test_constant_pattern_no_tail():
     reported_patterns = {
