@@ -64,7 +64,7 @@ jobs:
           name: codecov-umbrella
           fail_ci_if_error: false
   doctest:
-    name: Doctest (ubuntu-latest, 3.12)
+    name: Doctest (ubuntu-latest, 3.11)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -72,7 +72,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
-          python-version: "3.12"
+          python-version: "3.11"
       - name: Install dependencies
         run: uv sync --extra docs
       - name: Run doctests
