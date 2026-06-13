@@ -1,8 +1,10 @@
+from __future__ import annotations
 import pytest
 
 import chainladder as cl
 import copy
 import numpy as np
+import pandas as pd
 
 from chainladder import (
     __dt64_unit__
@@ -10,7 +12,11 @@ from chainladder import (
 from chainladder.utils.utility_functions import date_delta_adjustment
 from chainladder.utils.data._manifest import SAMPLES
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from pytest import CaptureFixture
+    from pytest import MonkeyPatch
 
 
 
@@ -368,3 +374,399 @@ def test_reset_option_invalid() -> None:
     """
     with pytest.raises(ValueError):
         cl.options.reset_option('NOT_A_REAL_OPTION')
+
+
+def test_set_option_cupy_backend_deprecated() -> None:
+    """
+    Setting ARRAY_BACKEND to 'cupy' should emit a DeprecationWarning. See issue #843.
+
+    Returns
+    -------
+    None
+    """
+    try:
+        with pytest.warns(DeprecationWarning, match="cupy"):
+            cl.options.set_option('ARRAY_BACKEND', 'cupy')
+    finally:
+        cl.options.reset_option('ARRAY_BACKEND')
+
+
+def test_set_option_dask_backend_deprecated() -> None:
+    """
+    Setting ARRAY_BACKEND to 'dask' should emit a DeprecationWarning. See issue #842.
+
+    Returns
+    -------
+    None
+    """
+    try:
+        with pytest.warns(DeprecationWarning, match="dask"):
+            cl.options.set_option('ARRAY_BACKEND', 'dask')
+    finally:
+        cl.options.reset_option('ARRAY_BACKEND')
+
+
+def test_set_option_cupy_priority_deprecated() -> None:
+    """
+    Setting ARRAY_PRIORITY with 'cupy' ahead of a non-deprecated backend
+    ('numpy' or 'sparse') should emit a DeprecationWarning. See issue #843.
+
+    Returns
+    -------
+    None
+    """
+    try:
+        with pytest.warns(DeprecationWarning, match="cupy"):
+            cl.options.set_option('ARRAY_PRIORITY', ['cupy', 'numpy', 'sparse', 'dask'])
+    finally:
+        cl.options.reset_option('ARRAY_PRIORITY')
+
+
+def test_set_option_dask_priority_deprecated() -> None:
+    """
+    Setting ARRAY_PRIORITY with 'dask' ahead of a non-deprecated backend
+    ('numpy' or 'sparse') should emit a DeprecationWarning. See issue #842.
+
+    Returns
+    -------
+    None
+    """
+    try:
+        with pytest.warns(DeprecationWarning, match="dask"):
+            cl.options.set_option('ARRAY_PRIORITY', ['dask', 'numpy', 'sparse', 'cupy'])
+    finally:
+        cl.options.reset_option('ARRAY_PRIORITY')
+
+
+def test_set_option_deprecated_priority_last_no_warning(recwarn) -> None:
+    """
+    Setting ARRAY_PRIORITY with the deprecated backends ('cupy' and 'dask')
+    ranked below every non-deprecated backend should not warn, since neither
+    would ever be selected over a supported backend. See issues #842 and #843.
+
+    Returns
+    -------
+    None
+    """
+    try:
+        cl.options.set_option('ARRAY_PRIORITY', ['numpy', 'sparse', 'dask', 'cupy'])
+        assert not [w for w in recwarn if issubclass(w.category, DeprecationWarning)]
+    finally:
+        cl.options.reset_option('ARRAY_PRIORITY')
+
+
+def test_set_option_supported_backend_no_warning(recwarn) -> None:
+    """
+    Setting a non-deprecated backend ('sparse'), and a priority list where no
+    deprecated backend precedes a supported one, should not emit a
+    DeprecationWarning.
+
+    Returns
+    -------
+    None
+    """
+    try:
+        cl.options.set_option('ARRAY_BACKEND', 'sparse')
+        cl.options.set_option('ARRAY_PRIORITY', ['sparse', 'numpy'])
+        assert not [w for w in recwarn if issubclass(w.category, DeprecationWarning)]
+    finally:
+        cl.options.reset_option('ARRAY_BACKEND')
+        cl.options.reset_option('ARRAY_PRIORITY')
+
+
+def test_set_backend_cupy_deprecated(clrd) -> None:
+    """
+    Triangle.set_backend('cupy') should emit exactly one DeprecationWarning,
+    pointing at the caller. See issue #843.
+
+    Returns
+    -------
+    None
+    """
+    with pytest.warns(DeprecationWarning, match="cupy") as record:
+        clrd.set_backend('cupy', deep=True)
+    cupy_warnings = [
+        w for w in record
+        if issubclass(w.category, DeprecationWarning) and "cupy" in str(w.message)
+    ]
+    # A single warning should fire at the user's call site, not once per
+    # internal recursive / deep child conversion.
+    assert len(cupy_warnings) == 1
+    assert cupy_warnings[0].filename == __file__
+
+
+def test_set_backend_dask_deprecated(clrd) -> None:
+    """
+    Triangle.set_backend('dask') should emit exactly one DeprecationWarning,
+    pointing at the caller. See issue #842.
+
+    Returns
+    -------
+    None
+    """
+    with pytest.warns(DeprecationWarning, match="dask") as record:
+        try:
+            clrd.set_backend('dask', deep=True)
+        except Exception:
+            # The actual conversion can fail when the optional 'dask'
+            # dependency is not installed; we only care that the deprecation
+            # warning fired at the public entry point.
+            pass
+    dask_warnings = [
+        w for w in record
+        if issubclass(w.category, DeprecationWarning) and "dask" in str(w.message)
+    ]
+    assert len(dask_warnings) == 1
+    assert dask_warnings[0].filename == __file__
+
+
+def test_triangle_dask_input_deprecated() -> None:
+    """
+    Passing a Dask dataframe to the Triangle constructor should emit a
+    DeprecationWarning. The 'dask' dependency is optional and not installed in
+    the test environment, so a pandas subclass whose module is spoofed to
+    'dask' is used to take the same non-pandas code path in ``_aggregate_data``
+    while still supporting the pandas operations performed there. See issue
+    #842.
+
+    Returns
+    -------
+    None
+    """
+    class _FakeDaskFrame(pd.DataFrame):
+        @property
+        def _constructor(self):
+            return _FakeDaskFrame
+
+    # The warning is gated on the data's top-level module being 'dask', so the
+    # detection mirrors a real dask dataframe (e.g. dask.dataframe.core).
+    _FakeDaskFrame.__module__ = "dask.dataframe.core"
+
+    data = _FakeDaskFrame({
+        "origin": [2020, 2020, 2021],
+        "development": [2020, 2021, 2021],
+        "values": [100.0, 150.0, 200.0],
+    })
+    with pytest.warns(DeprecationWarning, match="dask") as record:
+        cl.Triangle(
+            data,
+            origin="origin",
+            development="development",
+            columns="values",
+        )
+    dask_warnings = [
+        w for w in record
+        if issubclass(w.category, DeprecationWarning) and "dask" in str(w.message)
+    ]
+    assert len(dask_warnings) == 1
+    assert dask_warnings[0].filename == __file__
+
+
+def test_triangle_pandas_subclass_no_dask_warning(recwarn) -> None:
+    """
+    Passing a pandas subclass (not a Dask dataframe) to the Triangle
+    constructor should not emit the dask DeprecationWarning, even though such
+    inputs take the same non-pandas code path in ``_aggregate_data``. See
+    issue #842.
+
+    Returns
+    -------
+    None
+    """
+    class _PandasSubclass(pd.DataFrame):
+        @property
+        def _constructor(self):
+            return _PandasSubclass
+
+    data = _PandasSubclass({
+        "origin": [2020, 2020, 2021],
+        "development": [2020, 2021, 2021],
+        "values": [100.0, 150.0, 200.0],
+    })
+    cl.Triangle(
+        data,
+        origin="origin",
+        development="development",
+        columns="values",
+    )
+    dask_warnings = [
+        w for w in recwarn
+        if issubclass(w.category, DeprecationWarning) and "dask" in str(w.message)
+    ]
+    assert dask_warnings == []
+
+
+def test_describe_option(capsys: CaptureFixture[str]) -> None:
+    """
+    Supply an option to cl.options.describe_option(). Attribute name, type, default/current
+    settings should be captured in the output.
+
+    Parameters
+    ----------
+    capsys: CaptureFixture[str]
+        pytest built-in fixture to capture stdout
+
+    Returns
+    -------
+    None
+
+    """
+    cl.options.describe_option('ARRAY_BACKEND')
+    captured = capsys.readouterr()
+    assert 'ARRAY_BACKEND : str' in captured.out
+    assert '[default: numpy]' in captured.out
+    assert '[currently: numpy]' in captured.out
+
+def test_describe_option_multi(capsys) -> None:
+    """
+    Supply two options to cl.options.describe_option(). Attribute names, types, default/current
+    settings should be captured in the output.
+
+    Parameters
+    ----------
+    capsys: CaptureFixture[str]
+        pytest built-in fixture to capture stdout
+
+    Returns
+    -------
+    None
+
+    """
+    cl.options.describe_option('ARRAY_BACKEND|AUTO_SPARSE')
+    captured = capsys.readouterr()
+    assert 'ARRAY_BACKEND : str' in captured.out
+    assert '[default: numpy]' in captured.out
+    assert '[currently: numpy]' in captured.out
+    assert 'AUTO_SPARSE : bool' in captured.out
+    assert '[default: True]' in captured.out
+    assert '[currently: True]' in captured.out
+    assert 'ARRAY_PRIORITY' not in captured.out
+
+
+def test_describe_option_all(capsys) -> None:
+    """
+    Execute cl.options.describe_option() with default arguments. All attributes
+    should be captured.
+
+    Parameters
+    ----------
+    capsys: CaptureFixture[str]
+        pytest built-in fixture to capture stdout
+
+    Returns
+    -------
+    None
+
+    """
+    cl.options.describe_option()
+    captured = capsys.readouterr()
+    for key in cl.Options()._defaults:
+        assert key in captured.out
+
+
+def test_describe_option_return_string() -> None:
+    """
+    Execute cl.options.desribe_option() with _print_desc=False. Should return a string. Check
+    if attribute info is in the string.
+
+    Returns
+    -------
+    None
+
+    """
+    result = cl.options.describe_option('ARRAY_BACKEND', _print_desc=False)
+    assert isinstance(result, str)
+    assert 'ARRAY_BACKEND : str' in result
+    assert '[default: numpy]' in result
+    assert '[currently: numpy]' in result
+
+
+def test_deprecated_option_kwarg_warns() -> None:
+    """
+    Passing option= to get_option or set_option should emit a FutureWarning.
+    """
+    with pytest.warns(FutureWarning, match="'option'"):
+        cl.options.get_option(option='ARRAY_BACKEND')
+
+    try:
+        with pytest.warns(FutureWarning, match="'option'"):
+            cl.options.set_option(option='ARRAY_BACKEND', value='numpy')
+    finally:
+        cl.options.reset_option('ARRAY_BACKEND')
+
+
+def test_deprecated_option_kwarg_reset_option_warns() -> None:
+    """
+    Passing option= to reset_option should emit a FutureWarning.
+    """
+    try:
+        cl.options.set_option('ARRAY_BACKEND', 'sparse')
+        with pytest.warns(FutureWarning, match="'option'"):
+            cl.options.reset_option(option='ARRAY_BACKEND')
+        assert cl.options.ARRAY_BACKEND == 'numpy'
+    finally:
+        cl.options.reset_option('ARRAY_BACKEND')
+
+
+def test_get_option_missing_pat_raises() -> None:
+    """
+    Calling get_option() with neither pat nor option should raise TypeError.
+    """
+    with pytest.raises(TypeError, match="missing required argument"):
+        cl.options.get_option()
+
+
+def test_describe_option_no_docstring_match(monkeypatch: MonkeyPatch) -> None:
+    """
+    When the class docstring has no entry for an option, describe_option should fall back
+    to 'No description available.' rather than raising an error.
+
+    Parameters
+    ----------
+    monkeypatch: MonkeyPatch
+        The pytest built-in monkeypatch fixture.
+
+    Returns
+    -------
+    None
+    """
+    monkeypatch.setattr(cl.Options, '__doc__', '')
+    result = cl.options.describe_option('ARRAY_BACKEND', _print_desc=False)
+    assert 'No description available.' in result
+
+
+def test_describe_option_invalid() -> None:
+    """
+    Execute cl.options.desribe_option() with an invalid argument. Should raise a ValueError.
+
+    Returns
+    -------
+    None
+
+    """
+    with pytest.raises(ValueError):
+        cl.options.describe_option('NOT_A_REAL_OPTION')
+
+
+def test_both_pat_and_option_raises() -> None:
+    """
+    Passing both pat and option to get_option, set_option, or reset_option should raise TypeError.
+    """
+    with pytest.raises(TypeError, match="Cannot specify both"):
+        cl.options.get_option(pat='ARRAY_BACKEND', option='ARRAY_BACKEND')
+
+
+def test_set_option_missing_value_raises() -> None:
+    """
+    Calling set_option with pat but no value should raise TypeError.
+    """
+    with pytest.raises(TypeError, match="missing required argument"):
+        cl.options.set_option('ARRAY_BACKEND')
+
+
+def test_describe_option_invalid_regex() -> None:
+    """
+    Passing a malformed regular expression to describe_option should raise ValueError.
+    """
+    with pytest.raises(ValueError, match="not a valid regular expression"):
+        cl.options.describe_option('[')
