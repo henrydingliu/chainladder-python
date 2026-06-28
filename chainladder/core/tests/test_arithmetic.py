@@ -1,4 +1,78 @@
+from __future__ import annotations
+import numpy as np
 import pytest
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from chainladder import Triangle
+
+from chainladder.utils.sparse import COO
+
+
+def test_arithmetic_ndarray_other_backend(raa: Triangle) -> None:
+    """
+    When the left side of an arithmetic operator has a sparse backend, and the right side is a numpy ndarray,
+    The result should have a sparse backend.
+
+    Parameters
+    ----------
+    raa: Triangle
+        The raa sample data set Triangle.
+
+    Returns
+    -------
+    None
+    """
+    sparse_raa = raa.set_backend("sparse")
+    other = np.ones(sparse_raa.shape)
+    result = sparse_raa + other
+    assert result.array_backend == "sparse"
+    assert result.set_backend("numpy") == raa + 1
+
+
+def test_arithmetic_coo_other_backend(raa: Triangle) -> None:
+    """
+    When the left side of an arithmetic operator has a numpy backend, and the right side is a sparse COO,
+    The result should have a sparse backend.
+
+    Parameters
+    ----------
+    raa: Triangle
+        The raa sample data set Triangle.
+
+    Returns
+    -------
+    None
+    """
+    numpy_raa = raa.set_backend("numpy")
+    other = COO.from_numpy(np.ones(numpy_raa.shape))
+    result = numpy_raa + other
+    assert result.array_backend == "sparse"
+    assert result.set_backend("numpy") == raa + 1
+
+
+def test_arithmetic_grain_mismatch_raises(raa: Triangle, qtr: Triangle) -> None:
+    """
+    Add two triangles with different grain. Raise an error.
+
+    Parameters
+    ----------
+    raa: Triangle
+        The raa sample data set Triangle.
+
+    qtr: Triangle
+        The quarterly sample data set Triangle.
+
+    Returns
+    -------
+    None
+    """
+    with pytest.raises(
+        ValueError,
+        match="Triangle arithmetic requires both triangles to be the same grain.",
+    ):
+        raa + qtr
 
 
 def test_arithmetic_union(raa):
@@ -83,3 +157,45 @@ def test_index_broadacsting6(clrd):
     c = clrd['CumPaidLoss'].iloc[50:100]
     d = a + b - c
     assert d.sort_index() == clrd['CumPaidLoss'].iloc[:150].sort_index()
+
+
+def test_index_broadcasting_ambiguous(clrd: Triangle) -> None:
+    """
+    Attempt to add two triangles with inconsistent indexes. Raise a ValueError.
+
+    Parameters
+    ----------
+    clrd: Triangle
+        The clrd sample data set fixture.
+
+    Returns
+    -------
+    None
+    """
+    a = clrd['CumPaidLoss'].groupby('GRNAME').sum()
+    b = clrd['CumPaidLoss'].groupby('LOB').sum()
+    with pytest.raises(ValueError, match="Index broadcasting is ambiguous"):
+        _= a + b
+
+
+def test_prep_columns_reindexes_superset(clrd: Triangle) -> None:
+    """
+    When one triangle's columns are a strict superset of the other's, the subset
+    triangle is reindexed with the missing columns filled as zero. Test both
+    directions: x as superset and y as superset.
+
+    Parameters
+    ----------
+    clrd: Triangle
+        The clrd sample data set fixture.
+
+    Returns
+    -------
+    None
+    """
+    x = clrd[['CumPaidLoss', 'EarnedPremNet', 'IncurLoss']]
+    y = clrd[['CumPaidLoss', 'IncurLoss']]
+    for result in [x + y, y + x]:
+        assert set(result.columns) == {'CumPaidLoss', 'EarnedPremNet', 'IncurLoss'}
+        assert result[['CumPaidLoss', 'IncurLoss']] == clrd[['CumPaidLoss', 'IncurLoss']] * 2
+        assert result['EarnedPremNet'] == clrd['EarnedPremNet']
