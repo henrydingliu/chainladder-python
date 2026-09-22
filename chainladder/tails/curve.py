@@ -171,17 +171,21 @@ class TailCurve(TailBase):
         self : object
             Returns the instance itself.
         """
+
+        X = X.copy()
+        xp = X.get_array_module()
+
         # validate arguments
 
-        if curve not in get_args(_ValidCurves):
+        if self.curve not in get_args(_ValidCurves):
             raise ValueError(
-                f"Invalid curve type specified. Accepted values are {*get_args(_ValidCurves)}."
+                f"Invalid curve type specified. Accepted values are {get_args(_ValidCurves)}."
             )
 
-        if errors not in get_args(_ValidErrors):
+        if self.errors not in get_args(_ValidErrors):
             raise ValueError(
                 "Invalid errors handling specified. "
-                f"Accepted values are {*get_args(_ValidErrors)}."
+                f"Accepted values are {get_args(_ValidErrors)}."
             )
 
         if type(self.fit_period) is list:
@@ -204,8 +208,6 @@ class TailCurve(TailBase):
                 f"Invalid fit_period specified. Accepted values are tuple or list."
             )
 
-        X = X.copy()
-        xp = X.get_array_module()
         super().fit(X, y, sample_weight)
         xp = self.ldf_.get_array_module()
         _y = self.ldf_.values[..., : X.shape[-1] - 1].copy()
