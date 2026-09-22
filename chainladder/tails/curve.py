@@ -1,20 +1,29 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
+from __future__ import annotations
+
 from chainladder.tails import TailBase
 from chainladder.utils import WeightedRegression
 from chainladder.development import Development
 import pandas as pd
 import warnings
 
+from typing import get_args, Literal, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from chainladder import Triangle
+
+
+_ValidCurves = Literal["exponential", "inverse_power", "weibull"]
+_ValidErrors = Literal["raise", "ignore"]
 
 class TailCurve(TailBase):
-    """
-    Allows for extraploation of LDFs to form a tail factor.
+    """Allows for extraploation of LDFs to form a tail factor.
 
     Parameters
     ----------
-    curve : str ('exponential', 'inverse_power')
+    curve : Literal['exponential', 'inverse_power', 'weibull']
         The type of curve extrapolation you'd like to use
     fit_period : tuple (start, stop) or list(bool)
         A tuple representing the range of ldfs to use in the curve fit.
@@ -25,7 +34,7 @@ class TailCurve(TailBase):
     extrap_periods : int
         Then number of development periods from attachment point to extrapolate
         the fit.
-    errors : str ('raise' or 'ignore')
+    errors : Literal['raise', 'ignore']
         Whether to raise an error or ignore observations that violate the
         distribution being fit.  The most common is ldfs < 1.0 will not work
         in either the ``exponential`` or ``inverse_power`` fits.
@@ -130,26 +139,14 @@ class TailCurve(TailBase):
 
     def __init__(
         self,
-        curve="exponential",
-        fit_period=(None, None),
-        extrap_periods=100,
-        errors="ignore",
-        attachment_age=None,
-        reg_threshold=(1.00001, None),
-        projection_period=12,
+        curve: _ValidCurves = "exponential",
+        fit_period: tuple[int | None, int | None] | list[bool] = (None, None),
+        extrap_periods: int = 100,
+        errors: _ValidErrors = "ignore",
+        attachment_age: int | None = None,
+        reg_threshold: tuple[float | None, float | None] = (1.00001, None),
+        projection_period: int = 12,
     ):
-        # validate arguments
-
-        if curve not in ["exponential", "inverse_power", "weibull"]:
-            raise ValueError(
-                "Invalid curve type specified. Accepted values are 'exponential', 'inverse_power' and 'weibull'."
-            )
-
-        if errors not in ["ignore", "raise"]:
-            raise ValueError(
-                "Invalid value argument supplied to the errors parameter. Accepted values are 'raise' "
-                "and 'ignore'."
-            )
         self.curve = curve
         self.fit_period = fit_period
         self.extrap_periods = extrap_periods
@@ -174,17 +171,22 @@ class TailCurve(TailBase):
         self : object
             Returns the instance itself.
         """
+        # validate arguments
 
-        X = X.copy()
-        xp = X.get_array_module()
-        if type(self.fit_period) is slice:
-            warnings.warn(
-                "Slicing for fit_period is deprecated and will be removed. Please use a tuple (start_age, end_age)."
+        if curve not in get_args(_ValidCurves):
+            raise ValueError(
+                f"Invalid curve type specified. Accepted values are {*get_args(_ValidCurves)}."
             )
-            fit_period = self.fit_period
-        elif type(self.fit_period) is list:
+
+        if errors not in get_args(_ValidErrors):
+            raise ValueError(
+                "Invalid errors handling specified. "
+                f"Accepted values are {*get_args(_ValidErrors)}."
+            )
+
+        if type(self.fit_period) is list:
             fit_period = xp.array(self.fit_period)[None, None, None, :]
-        else:
+        elif type(self.fit_period) is tuple:
             grain = {"Y": 12, "S": 6, "Q": 3, "M": 1}[X.development_grain]
             start = (
                 None
@@ -197,6 +199,13 @@ class TailCurve(TailBase):
                 else int(self.fit_period[1] / grain - 1)
             )
             fit_period = slice(start, end, None)
+        else:
+            raise ValueError(
+                f"Invalid fit_period specified. Accepted values are tuple or list."
+            )
+
+        X = X.copy()
+        xp = X.get_array_module()
         super().fit(X, y, sample_weight)
         xp = self.ldf_.get_array_module()
         _y = self.ldf_.values[..., : X.shape[-1] - 1].copy()
@@ -205,6 +214,7 @@ class TailCurve(TailBase):
             _w[..., fit_period] = 1.0
         else:
             _w = (_w + 1) * fit_period
+
         if self.reg_threshold[0] is None:
             warnings.warn(
                 "Lower threshold for ldfs not set. Lower threshold will be set to 1.0 to ensure"
