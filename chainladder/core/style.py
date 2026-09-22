@@ -277,3 +277,61 @@ class Styler(_PandasStyler):
             ),
             axis=None,
         )
+
+    def apply_from_triangle(
+        self,
+        indicator_tri: Triangle,
+        true_props: str | None = None,
+        false_props: str | None = None,
+    ) -> Styler:
+        """
+        Apply a style to cells based on a boolean indicator Triangle.
+
+        Parameters
+        ----------
+        indicator_tri: Triangle
+            A boolean Triangle, where ``True`` indicates the cell should be
+            styled and ``False`` indicates it should not.
+        true_props: str | None
+            A full CSS properties string to apply to cells where
+            ``indicator_tri`` is ``True``, e.g.
+            ``"background-color: blue; opacity: 60%;"``. Optional.
+        false_props: str | None
+            A full CSS properties string to apply to cells where
+            ``indicator_tri`` is ``False``, e.g.
+            ``"background-color: blue; opacity: 60%;"``. Optional.
+
+        Returns
+        -------
+        Styler
+
+        Raises
+        ------
+        ValueError
+            If the wrapped Triangle is a valuation Triangle.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            import chainladder as cl
+
+            raa = cl.load_sample("raa")
+            tri = raa.copy()
+            tri[tri > 1000000] = np.nan
+            tri.style.apply_from_triangle(tri, true_props="background-color: red;")
+        """
+        if indicator_tri.shape[2:] != self.data.shape:
+            raise ValueError(
+                "indicator_triangle has a different shape."
+            )
+
+        if true_props is None:
+            true_props = "background-color: green;"
+        if false_props is None:
+            false_props = "background-color: white;"
+
+        return self.apply(  # pyright: ignore[reportReturnType]
+            lambda _: np.where(indicator_tri.values[0, 0, :, :], true_props, false_props),
+            axis=None,
+        )
