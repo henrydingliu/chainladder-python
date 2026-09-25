@@ -143,11 +143,11 @@ class TailCurve(TailBase):
         curve: _ValidCurves = "exponential",
         fit_period: tuple[int | None, int | None] | list[bool] = (None, None),
         extrap_periods: int = 100,
-        errors: _ValidErrors = "ignore",
+        errors: _ValidErrors | None = None,
         attachment_age: int | None = None,
         reg_threshold: tuple[float | None, float | None] = (1.00001, None),
         projection_period: int = 12,
-        invalidf_ldf: _ValidInvalids = "ignore",
+        invalid_ldf: _ValidInvalids | None = None,
     ):
         self.curve = curve
         self.fit_period = fit_period
@@ -175,11 +175,10 @@ class TailCurve(TailBase):
         """
 
         X = X.copy()
-        xp = X.get_array_module()
         super().fit(X, y, sample_weight)
-        ldf_xp = self.ldf_.get_array_module()
+        xp = self.ldf_.get_array_module()
         _y = self.ldf_.values[..., : X.shape[-1] - 1].copy()
-        _w = ldf_xp.zeros(_y.shape)
+        _w = xp.zeros(_y.shape)
 
         # validate arguments
         if self.curve not in get_args(_ValidCurves):
@@ -187,19 +186,30 @@ class TailCurve(TailBase):
                 f"Invalid curve type specified. Accepted values are {get_args(_ValidCurves)}."
             )
 
-        if self.errors not in get_args(_ValidErrors):
-            raise ValueError(
-                "Invalid errors handling specified. "
-                f"Accepted values are {get_args(_ValidErrors)}."
-            )
+        if self.invalid_ldf:  # `invalid_ldf` is supplied. only error if `errors` is also supplied
+            if self.errors:  # does not raise on a default `TailCurve()`
+                raise ValueError("Both 'errors' and `invalid_ldf` are supplied.")
+            invalid_ldf = self.invalid_ldf  # assigning local `invalid_ldf` to not violate skl
+        else:
+            if self.errors is None:  # current behavior of a default `TailCurve()`
+                invalid_ldf = "cap"
+            elif self.errors == "raise":
+                invalid_ldf = "raise"
+            elif self.errors == "ignore":
+                invalid_ldf = "cap"
+            else:
+                raise ValueError(
+                    "Invalid errors handling specified. "
+                    f"Accepted values are {get_args(_ValidErrors)}."
+                )
 
-        if self.invalid_ldf not in get_args(_ValidInvalids):
+        if invalid_ldf not in get_args(_ValidInvalids):
             raise ValueError(
-                "Invalid invalid ldf handling specified. "
+                "Invalid ldf handling specified. "
                 f"Accepted values are {get_args(_ValidInvalids)}."
             )
 
-        if type(self.fit_period) is list:
+        if isinstance(self.fit_period, list):
             fit_period = xp.array(self.fit_period)[None, None, None, :]
             if _w.shape.shape[-1] != fit_period.shape[-1]:
                 raise ValueError(
@@ -207,7 +217,7 @@ class TailCurve(TailBase):
                     f"Accepted values are list of length {_w.shape[-1]}."
                 )
             _w = (_w + 1) * fit_period
-        elif type(self.fit_period) is tuple:
+        elif isinstance(self.fit_period, tuple):
             grain = {"Y": 12, "S": 6, "Q": 3, "M": 1}[X.development_grain]
             start = (
                 None
@@ -250,14 +260,14 @@ class TailCurve(TailBase):
                 upper_threshold = self.reg_threshold[1]
         else:
             upper_threshold = self.reg_threshold[1]
-        if self.errors == "ignore":
+        if invalid_ldf == "cap":
             if upper_threshold is None:
                 _w[_y <= lower_threshold] = 0
                 _y[_y <= lower_threshold] = 1.01
             else:
                 _w[(_y <= lower_threshold) | (_y > upper_threshold)] = 0
                 _y[(_y <= lower_threshold) | (_y > upper_threshold)] = 1.01
-        elif self.errors == "raise" and xp.any(_y < 1.0):
+        elif invalid_ldf == "raise" and xp.any(_y < 1.0):
             raise ZeroDivisionError("Tail fit requires all LDFs to be greater than 1.0")
         if self.curve == "weibull":
             _y = xp.log(xp.log(_y / (_y - 1)))
