@@ -6,8 +6,6 @@ from chainladder.utils import WeightedRegression
 from chainladder.development import DevelopmentBase, Development
 
 
-_Threshold = 1.0001
-
 class TailBase(DevelopmentBase):
     """
     Base class for all tail methods.  Tail objects are equivalent
