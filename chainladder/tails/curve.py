@@ -156,6 +156,7 @@ class TailCurve(TailBase):
         self.attachment_age = attachment_age
         self.reg_threshold = reg_threshold
         self.projection_period = projection_period
+        self.invalid_ldf = invalid_ldf
 
     def fit(self, X, y=None, sample_weight=None):
         """
@@ -202,6 +203,12 @@ class TailCurve(TailBase):
                     "Invalid errors handling specified. "
                     f"Accepted values are {get_args(_ValidErrors)}."
                 )
+
+        if self.errors:
+            warnings.warn(
+                "`errors` is deprecated. Please use `invalid_ldf` instead.",
+                FutureWarning,
+            )
 
         if invalid_ldf not in get_args(_ValidInvalids):
             raise ValueError(
