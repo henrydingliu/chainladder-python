@@ -352,7 +352,7 @@ class TriangleWeight(BaseEstimator, TransformerMixin):
         )
 
         if warning_flag:
-            warn_exclusions_ignored(self.preserve)
+            warn_exclusions_ignored(self.preserve, 3)
 
         return w.astype(float)
 
@@ -480,6 +480,6 @@ class TriangleWeight(BaseEstimator, TransformerMixin):
         )
 
         if warning_flag:
-            warn_exclusions_ignored(self.preserve)
+            warn_exclusions_ignored(self.preserve, 3)
 
         return w.astype(float)

@@ -1179,7 +1179,7 @@ def date_delta_adjustment(date: str) -> str:
     return res
 
 
-def warn_exclusions_ignored(preserve):
+def warn_exclusions_ignored(preserve, stacklevel=2):
     """
     Warn that an exclusion was not applied because ``preserve`` blocked it.
 
@@ -1200,4 +1200,4 @@ def warn_exclusions_ignored(preserve):
             + str(preserve)
             + " link ratio(s) is required for development estimation."
         )
-    warnings.warn(warning)
+    warnings.warn(warning, stacklevel=stacklevel)

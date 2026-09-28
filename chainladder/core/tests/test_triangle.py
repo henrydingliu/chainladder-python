@@ -3019,7 +3019,7 @@ def test_get_axis_value(raa) -> None:
         raa._get_axis_value("dev")
 
 
-def test_to_datetime_uninferrable_format_raises() -> None:
+def test_to_datetime_uninferrable_format_warns_then_raises() -> None:
     """
     Initialize a triangle with incorrect date format on the origin axis. Should raise a ValueError.
 
@@ -3029,17 +3029,18 @@ def test_to_datetime_uninferrable_format_raises() -> None:
 
     """
     with pytest.raises(ValueError, match="Unable to infer datetime"):
-        cl.Triangle(
-            data={
-                "origin": ["1995/Q1", "1996/Q1"],
-                "development": ["1995Q1", "1996Q1"],
-                "value": [1.0, 2.0],
-            },
-            origin="origin",
-            development="development",
-            columns="value",
-            cumulative=True,
-        )
+        with pytest.warns(UserWarning, match="Could not infer format"):
+            cl.Triangle(
+                data={
+                    "origin": ["1995/Q1", "1996/Q1"],
+                    "development": ["1995Q1", "1996Q1"],
+                    "value": [1.0, 2.0],
+                },
+                origin="origin",
+                development="development",
+                columns="value",
+                cumulative=True,
+            )
 
 
 def test_set_backend_via_ldf(raa: Triangle) -> None:
