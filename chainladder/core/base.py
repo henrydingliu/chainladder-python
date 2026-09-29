@@ -730,10 +730,12 @@ class TriangleBase(
         """Lists subtriangles from a Triangle instance"""
         return [k for k, v in vars(self).items() if isinstance(v, TriangleBase)]
 
-    def __array__(self):
-        if self.array_backend == "sparse":
-            return self.values.todense()
-        return self.values
+    def __array__(
+        self,
+        dtype: np.dtype | None = None,
+        copy: bool | None = None,
+    ) -> np.ndarray:
+        return self.values.__array__(dtype, copy)
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         obj = self.copy()
