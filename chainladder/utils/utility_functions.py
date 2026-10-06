@@ -1224,8 +1224,8 @@ def _from_standard_frame(df: pd.DataFrame):
         else:
             tri = Triangle()
         subs = df.loc[df["level"] != ""]
-        subs_names = list(set(subs["level"].str.partition(".")[0]))
-        for sub in subs_names:
+        subs_names = subs["level"].str.partition(".")[0]
+        for sub in list(set(subs_names)):
             sub_df = subs.loc[subs_names == sub]
             sub_df["level"] = sub_df["level"].str.partition(".")[2]
             setattr(tri, sub, _from_standard_frame(sub_df))
