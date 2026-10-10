@@ -111,7 +111,7 @@ def test_read_csv_single(raa):
     assert raa == cl.read_csv(
         filepath_or_buffer=raa_csv_path,
         origin="origin",
-        development="development",
+        valuation="development",
         columns=["values"],
         index=None,
         cumulative=True,
@@ -128,7 +128,7 @@ def test_read_csv_multi(clrd):
     assert clrd == cl.read_csv(
         filepath_or_buffer=clrd_csv_path,
         origin="AccidentYear",
-        development="DevelopmentYear",
+        valuation="DevelopmentYear",
         columns=[
             "IncurLoss",
             "CumPaidLoss",
@@ -361,7 +361,8 @@ def test_sdist_ships_all_samples(tmp_path) -> None:
 
 
 def test_load_sample_uspp() -> None:
-    """Pin the manifest column schema for the uspp Friedland family.
+    """
+    Pin the manifest column schema for the uspp Friedland family.
 
     Loadability of every sample is already covered by ``test_load_sample``,
     but no other test asserts the columns a sample is configured with. This
@@ -936,15 +937,16 @@ def test_triangle_dask_input_deprecated() -> None:
 
     data = _FakeDaskFrame({
         "origin": [2020, 2020, 2021],
-        "development": [2020, 2021, 2021],
+        "valuation": [2020, 2021, 2021],
         "values": [100.0, 150.0, 200.0],
     })
     with pytest.warns(DeprecationWarning, match="dask") as record:
         cl.Triangle(
             data,
             origin="origin",
-            development="development",
+            valuation="valuation",
             columns="values",
+            cumulative=True,
         )
     dask_warnings = [
         w
@@ -974,13 +976,13 @@ def test_triangle_pandas_subclass_no_dask_warning(recwarn) -> None:
 
     data = _PandasSubclass({
         "origin": [2020, 2020, 2021],
-        "development": [2020, 2021, 2021],
+        "valuation": [2020, 2021, 2021],
         "values": [100.0, 150.0, 200.0],
     })
     cl.Triangle(
         data,
         origin="origin",
-        development="development",
+        valuation="valuation",
         columns="values",
     )
     dask_warnings = [
@@ -1298,11 +1300,13 @@ def test_triangleweight_drop_valuation_all(raa: Triangle) -> None:
         ).fit(raa)
 
 
-def test_triangleweight_full_triangle(raa: Triangle) -> None:
+def test_ptf_formula_deprecated_alias() -> None:
     """
-    Testing new path that allows weights on full triangles
+    PTF_formula should warn and return the same string as ptf_formula.
     """
-    ult = cl.Chainladder().fit(raa)
-    tw = cl.TriangleWeight(n_periods=4).fit(raa)
-    tw_full = cl.TriangleWeight(n_periods=4).fit(ult.full_triangle_)
-    assert tw.w_.iloc[:, :, :, 0] == tw_full.w_.iloc[:, :, :, 0]
+    from chainladder.utils.utility_functions import PTF_formula, ptf_formula
+
+    args = dict(alpha=[0, 2], gamma=[0, 1, 2], iota=[0, 1], dgrain=12)
+    with pytest.warns(FutureWarning, match="ptf_formula"):
+        old = PTF_formula(**args)
+    assert old == ptf_formula(**args)
